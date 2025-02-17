@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 downloads_dir = os.path.join(os.path.dirname(__file__), '../../downloads')
 os.makedirs(downloads_dir, exist_ok=True)
 
+@app.route('/api/test', methods=['GET'])
+def test():
+    """Test endpoint to verify API is working"""
+    return jsonify({
+        'status': 'success',
+        'message': 'API is working'
+    })
+
 @app.route('/api/download', methods=['POST'])
 def download():
     try:
@@ -59,10 +67,9 @@ def download():
         }), 500
 
 if __name__ == '__main__':
-    # Increase timeout and enable threaded mode
+    # Remove request_timeout and use threaded mode for better performance
     app.run(
         host='0.0.0.0',
         port=8000,
-        threaded=True,
-        request_timeout=60
+        threaded=True
     )

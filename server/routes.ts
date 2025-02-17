@@ -9,8 +9,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     createProxyMiddleware({
       target: "http://localhost:8000",
       changeOrigin: true,
-      proxyTimeout: 60000, // 60 seconds timeout
-      timeout: 60000,
+      proxyTimeout: 120000, // 2 minutes timeout
+      timeout: 120000,
+      onError: (err, req, res) => {
+        console.error('Proxy Error:', err);
+        res.writeHead(500, {
+          'Content-Type': 'application/json',
+        });
+        res.end(JSON.stringify({ error: 'Proxy error occurred' }));
+      }
     })
   );
 
