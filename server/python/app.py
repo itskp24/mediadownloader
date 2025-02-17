@@ -6,6 +6,8 @@ from instagram import download_instagram_content
 import logging
 import traceback
 import time
+import shutil
+from config import DOWNLOAD_PATH, API_PORT, DOWNLOAD_TIMEOUT
 
 # Configure detailed logging
 logging.basicConfig(
@@ -21,9 +23,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Create downloads directory
-downloads_dir = os.path.join(os.path.dirname(__file__), '../../downloads')
-os.makedirs(downloads_dir, exist_ok=True)
+# Use configured downloads directory
+DOWNLOADS_DIR = os.path.abspath(DOWNLOAD_PATH)
+os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+logger.info(f"Downloads directory set to: {DOWNLOADS_DIR}")
 
 @app.route('/api/test', methods=['GET'])
 def test():
@@ -31,12 +34,17 @@ def test():
     logger.info("Test endpoint called")
     return jsonify({
         'status': 'success',
-        'message': 'API is working'
+        'message': 'API is working',
+        'config': {
+            'downloads_dir': DOWNLOADS_DIR,
+            'timeout': DOWNLOAD_TIMEOUT
+        }
     })
 
 def send_file_partial(path, mimetype):
     """Stream file in chunks to prevent timeout"""
     file_size = os.path.getsize(path)
+    logger.info(f"Preparing to stream file: {path} (size: {file_size} bytes)")
 
     def generate():
         with open(path, 'rb') as f:
@@ -75,12 +83,26 @@ def download():
             return jsonify({'error': 'URL is required'}), 400
 
         try:
-            file_path, content_type = download_instagram_content(url, downloads_dir)
+            # Clean up old files in downloads directory
+            for filename in os.listdir(DOWNLOADS_DIR):
+                filepath = os.path.join(DOWNLOADS_DIR, filename)
+                try:
+                    if os.path.isfile(filepath):
+                        os.unlink(filepath)
+                except Exception as e:
+                    logger.warning(f"Error deleting old file {filepath}: {e}")
+
+            # Download new content
+            file_path, content_type = download_instagram_content(url, DOWNLOADS_DIR)
             logger.info(f"Content downloaded to: {file_path}")
 
             if not os.path.exists(file_path):
                 logger.error("Downloaded file not found")
                 raise Exception("Downloaded file not found")
+
+            # Log file details
+            file_size = os.path.getsize(file_path)
+            logger.info(f"File ready for streaming: {file_path} ({file_size} bytes)")
 
             # Stream the file in chunks
             return send_file_partial(file_path, content_type)
@@ -106,7 +128,7 @@ if __name__ == '__main__':
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
         app.run(
             host='0.0.0.0',
-            port=8000,
+            port=API_PORT,
             threaded=True,
             debug=True
         )
