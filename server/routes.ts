@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createProxyMiddleware } from "http-proxy-middleware";
+import { createProxyMiddleware, type Options } from "http-proxy-middleware";
+import type { IncomingMessage, ServerResponse } from "http";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Proxy /api requests to Python backend with increased timeout
@@ -11,15 +12,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       changeOrigin: true,
       proxyTimeout: 300000, // 5 minutes timeout
       timeout: 300000,
-      onProxyReq: (proxyReq, req, res) => {
+      onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
         console.log(`Proxying request to: ${req.method} ${req.url}`);
       },
-      onProxyRes: (proxyRes, req, res) => {
+      onProxyRes: (proxyRes: any, req: IncomingMessage, res: ServerResponse) => {
         console.log(`Received proxy response for: ${req.method} ${req.url} with status: ${proxyRes.statusCode}`);
       },
-      onError: (err, req, res, target) => {
+      onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
         console.error('Proxy Error:', err);
-        const statusCode = err.code === 'ECONNRESET' ? 504 : 500;
+        const statusCode = (err as any).code === 'ECONNRESET' ? 504 : 500;
         res.writeHead(statusCode, {
           'Content-Type': 'application/json',
         });
@@ -28,7 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           details: err.message || 'Proxy error occurred'
         }));
       }
-    })
+    } as Options)
   );
 
   const httpServer = createServer(app);
