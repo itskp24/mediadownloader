@@ -9,14 +9,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     createProxyMiddleware({
       target: "http://localhost:8000",
       changeOrigin: true,
-      proxyTimeout: 120000, // 2 minutes timeout
-      timeout: 120000,
-      onError: (err, req, res) => {
+      proxyTimeout: 300000, // 5 minutes timeout
+      timeout: 300000,
+      onProxyReq: (proxyReq, req, res) => {
+        console.log(`Proxying request to: ${req.method} ${req.url}`);
+      },
+      onProxyRes: (proxyRes, req, res) => {
+        console.log(`Received proxy response for: ${req.method} ${req.url} with status: ${proxyRes.statusCode}`);
+      },
+      onError: (err, req, res, target) => {
         console.error('Proxy Error:', err);
-        res.writeHead(500, {
+        const statusCode = err.code === 'ECONNRESET' ? 504 : 500;
+        res.writeHead(statusCode, {
           'Content-Type': 'application/json',
         });
-        res.end(JSON.stringify({ error: 'Proxy error occurred' }));
+        res.end(JSON.stringify({ 
+          error: 'Download failed',
+          details: err.message || 'Proxy error occurred'
+        }));
       }
     })
   );

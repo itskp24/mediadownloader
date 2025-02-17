@@ -45,6 +45,7 @@ def download():
             if not os.path.exists(file_path):
                 raise Exception("Downloaded file not found")
 
+            # Set response timeout to a higher value
             return send_file(
                 file_path,
                 as_attachment=True,
@@ -67,9 +68,10 @@ def download():
         }), 500
 
 if __name__ == '__main__':
-    # Remove request_timeout and use threaded mode for better performance
+    # Configure for longer timeouts
     app.run(
         host='0.0.0.0',
         port=8000,
-        threaded=True
+        threaded=True,
+        request_timeout=300  # 5 minutes timeout
     )
