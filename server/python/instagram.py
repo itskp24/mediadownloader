@@ -22,7 +22,11 @@ def extract_instagram_id(url):
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
-            return match.group(1)
+            shortcode = match.group(1)
+            logger.info(f"Extracted shortcode: {shortcode} from URL: {url}")
+            return shortcode
+
+    logger.error(f"Failed to extract shortcode from URL: {url}")
     raise ValueError("Invalid Instagram URL format")
 
 def download_instagram_content(url, downloads_dir):
@@ -32,7 +36,7 @@ def download_instagram_content(url, downloads_dir):
         shortcode = extract_instagram_id(url)
         logger.info(f"Extracted shortcode: {shortcode}")
 
-        # Initialize instaloader
+        # Initialize instaloader with more detailed logging
         L = instaloader.Instaloader(
             dirname_pattern=downloads_dir,
             filename_pattern=shortcode,
@@ -40,10 +44,12 @@ def download_instagram_content(url, downloads_dir):
             download_geotags=False,
             download_comments=False,
             save_metadata=False,
-            post_metadata_txt_pattern=''
+            post_metadata_txt_pattern='',
+            max_connection_attempts=3
         )
 
         # Download the post
+        logger.info("Initializing post download...")
         post = instaloader.Post.from_shortcode(L.context, shortcode)
 
         # Determine content type and download
@@ -58,8 +64,12 @@ def download_instagram_content(url, downloads_dir):
             content_type = 'image/jpeg'
             L.download_post(post, target=shortcode)
 
-        logger.info(f"Successfully downloaded content to: {file_path}")
-        return file_path, content_type
+        # Verify file exists and has content
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            logger.info(f"Successfully downloaded content to: {file_path}")
+            return file_path, content_type
+        else:
+            raise Exception("Download completed but file is missing or empty")
 
     except InstaloaderException as e:
         logger.error(f"Instaloader error: {str(e)}")
