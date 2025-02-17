@@ -138,6 +138,18 @@ wheels = [
 ]
 
 [[package]]
+name = "instaloader"
+version = "4.14.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d8/67/2adb34f2fc306d5fe8610c946f4b1fc4fb517b10034ef60f61d7674556b1/instaloader-4.14.1.tar.gz", hash = "sha256:a41a7372a18fb096b3ed545469479884de9cf768e12020c0e0e67c488d9d599c", size = 65954 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/61/d7f79fd385874e85acee8f4948f823ca372b9830380df8acc21ea001ac36/instaloader-4.14.1-py3-none-any.whl", hash = "sha256:43356f696231621ea5a93354f9a4578124fe131940ee9aa1e83c20f57e18f26d", size = 67912 },
+]
+
+[[package]]
 name = "itsdangerous"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -214,6 +226,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "flask" },
     { name = "flask-cors" },
+    { name = "instaloader" },
     { name = "requests" },
 ]
 
@@ -222,6 +235,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = "==4.12.3" },
     { name = "flask", specifier = "==3.0.2" },
     { name = "flask-cors", specifier = "==4.0.0" },
+    { name = "instaloader", specifier = ">=4.14.1" },
     { name = "requests", specifier = "==2.31.0" },
 ]
 

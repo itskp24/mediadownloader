@@ -2,9 +2,18 @@ import requests
 import json
 import re
 import os
+import logging
+import time
+import instaloader
+from instaloader.exceptions import InstaloaderException
 from bs4 import BeautifulSoup
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def extract_instagram_id(url):
+    """Extract the Instagram shortcode from URL."""
     patterns = [
         r'instagram.com/p/([^/?]+)',
         r'instagram.com/reel/([^/?]+)'
@@ -14,57 +23,47 @@ def extract_instagram_id(url):
         match = re.search(pattern, url)
         if match:
             return match.group(1)
-    raise ValueError("Invalid Instagram URL")
+    raise ValueError("Invalid Instagram URL format")
 
 def download_instagram_content(url, downloads_dir):
+    """Download Instagram content using instaloader."""
     try:
+        logger.info(f"Starting download for URL: {url}")
         shortcode = extract_instagram_id(url)
+        logger.info(f"Extracted shortcode: {shortcode}")
 
-        # First get the page HTML
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+        # Initialize instaloader
+        L = instaloader.Instaloader(
+            dirname_pattern=downloads_dir,
+            filename_pattern=shortcode,
+            download_video_thumbnails=False,
+            download_geotags=False,
+            download_comments=False,
+            save_metadata=False,
+            post_metadata_txt_pattern=''
+        )
 
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
+        # Download the post
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Determine content type and download
+        if post.is_video:
+            logger.info("Detected video content")
+            file_path = os.path.join(downloads_dir, f"{shortcode}.mp4")
+            content_type = 'video/mp4'
+            L.download_post(post, target=shortcode)
+        else:
+            logger.info("Detected image content")
+            file_path = os.path.join(downloads_dir, f"{shortcode}.jpg")
+            content_type = 'image/jpeg'
+            L.download_post(post, target=shortcode)
 
-        # Find meta tags with content URLs
-        meta_tags = soup.find_all('meta', {'property': ['og:video', 'og:image']})
-
-        if not meta_tags:
-            raise ValueError("No media content found")
-
-        # Get the content URL from meta tag
-        content_url = None
-        content_type = None
-
-        for tag in meta_tags:
-            if tag.get('property') == 'og:video':
-                content_url = tag.get('content')
-                content_type = 'video/mp4'
-                break
-            elif tag.get('property') == 'og:image':
-                content_url = tag.get('content')
-                content_type = 'image/jpeg'
-                break
-
-        if not content_url:
-            raise ValueError("Could not extract media URL")
-
-        # Download the content
-        response = requests.get(content_url, headers=headers)
-        response.raise_for_status()
-
-        # Save file
-        extension = '.mp4' if content_type == 'video/mp4' else '.jpg'
-        file_path = os.path.join(downloads_dir, f'{shortcode}{extension}')
-
-        with open(file_path, 'wb') as f:
-            f.write(response.content)
-
+        logger.info(f"Successfully downloaded content to: {file_path}")
         return file_path, content_type
 
+    except InstaloaderException as e:
+        logger.error(f"Instaloader error: {str(e)}")
+        raise Exception(f"Failed to download content: {str(e)}")
     except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
         raise Exception(f"Failed to download content: {str(e)}")

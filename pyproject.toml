@@ -8,4 +8,5 @@ dependencies = [
     "flask==3.0.2",
     "requests==2.31.0",
     "beautifulsoup4==4.12.3",
+    "instaloader>=4.14.1",
 ]
