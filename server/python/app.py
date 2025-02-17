@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, send_file, Response
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 from flask_cors import CORS
 import os
 import sys
 from instagram import download_instagram_content
 import logging
 import traceback
+import time
 
 # Configure detailed logging
 logging.basicConfig(
@@ -33,6 +34,29 @@ def test():
         'message': 'API is working'
     })
 
+def send_file_partial(path, mimetype):
+    """Stream file in chunks to prevent timeout"""
+    file_size = os.path.getsize(path)
+
+    def generate():
+        with open(path, 'rb') as f:
+            while True:
+                chunk = f.read(8192)  # 8KB chunks
+                if not chunk:
+                    break
+                yield chunk
+
+    headers = {
+        'Content-Type': mimetype,
+        'Content-Length': file_size,
+        'Content-Disposition': f'attachment; filename="{os.path.basename(path)}"'
+    }
+
+    return Response(
+        stream_with_context(generate()),
+        headers=headers
+    )
+
 @app.route('/api/download', methods=['POST'])
 def download():
     try:
@@ -58,12 +82,8 @@ def download():
                 logger.error("Downloaded file not found")
                 raise Exception("Downloaded file not found")
 
-            return send_file(
-                file_path,
-                as_attachment=True,
-                download_name=os.path.basename(file_path),
-                mimetype=content_type
-            )
+            # Stream the file in chunks
+            return send_file_partial(file_path, content_type)
 
         except Exception as e:
             logger.error(f"Download failed: {str(e)}\n{traceback.format_exc()}")
@@ -82,11 +102,13 @@ def download():
 if __name__ == '__main__':
     try:
         logger.info("Starting Flask server...")
+        # Set high timeout values
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
         app.run(
             host='0.0.0.0',
             port=8000,
             threaded=True,
-            debug=True  # Enable debug mode for detailed error messages
+            debug=True
         )
     except Exception as e:
         logger.error(f"Failed to start server: {str(e)}\n{traceback.format_exc()}")

@@ -10,13 +10,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     createProxyMiddleware({
       target: "http://localhost:8000",
       changeOrigin: true,
-      proxyTimeout: 300000, // 5 minutes timeout
-      timeout: 300000,
+      proxyTimeout: 600000, // 10 minutes timeout
+      timeout: 600000,
+      ws: true,
+      xfwd: true,
       onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
         console.log(`Proxying request to: ${req.method} ${req.url}`);
       },
       onProxyRes: (proxyRes: any, req: IncomingMessage, res: ServerResponse) => {
         console.log(`Received proxy response for: ${req.method} ${req.url} with status: ${proxyRes.statusCode}`);
+
+        // Set headers for streaming response
+        if (proxyRes.headers['content-type']?.includes('video') || 
+            proxyRes.headers['content-type']?.includes('image')) {
+          res.setHeader('Transfer-Encoding', 'chunked');
+        }
       },
       onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
         console.error('Proxy Error:', err);

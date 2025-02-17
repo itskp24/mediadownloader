@@ -2,6 +2,7 @@ import { apiRequest } from "./queryClient";
 
 export async function downloadInstagramContent(url: string) {
   try {
+    // Show detailed errors from the response
     const response = await fetch('/api/download', {
       method: 'POST',
       headers: {
@@ -15,23 +16,58 @@ export async function downloadInstagramContent(url: string) {
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
+        if (errorData.details) {
+          console.error('Detailed error:', errorData.details);
+        }
       } catch {
-        // If response isn't JSON, use status text
         errorMessage = response.statusText;
       }
       throw new Error(errorMessage);
     }
 
-    // Get the filename from the content-disposition header
+    // Handle streaming response
+    const reader = response.body?.getReader();
+    const contentLength = response.headers.get('Content-Length');
     const contentDisposition = response.headers.get('content-disposition');
     const filenameMatch = contentDisposition && contentDisposition.match(/filename="?([^"]+)"?/);
     const filename = filenameMatch ? filenameMatch[1] : 'instagram-content';
 
-    // Create a blob from the response
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
+    if (!reader) {
+      throw new Error('Failed to initialize download stream');
+    }
 
-    // Create and trigger download
+    // Read the stream
+    const chunks: Uint8Array[] = [];
+    let receivedLength = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      chunks.push(value);
+      receivedLength += value.length;
+
+      // Log progress for large files
+      if (contentLength) {
+        const progress = (receivedLength / parseInt(contentLength)) * 100;
+        console.log(`Download progress: ${progress.toFixed(2)}%`);
+      }
+    }
+
+    // Combine chunks into a single Uint8Array
+    const chunksAll = new Uint8Array(receivedLength);
+    let position = 0;
+    for (const chunk of chunks) {
+      chunksAll.set(chunk, position);
+      position += chunk.length;
+    }
+
+    // Create blob and trigger download
+    const blob = new Blob([chunksAll]);
+    const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = filename;
@@ -41,6 +77,7 @@ export async function downloadInstagramContent(url: string) {
     window.URL.revokeObjectURL(downloadUrl);
 
   } catch (error) {
+    console.error('Download error:', error);
     if (error instanceof Error) {
       throw new Error(`Download failed: ${error.message}`);
     }
